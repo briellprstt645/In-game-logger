@@ -16,6 +16,42 @@ function formatDate(accountAge) {
     return new Date(ms).toISOString().split("T")[0];
 }
 
+async function getRobloxLocale(userId) {
+    try {
+        const res = await axios.get(`https://users.roblox.com/v1/users/${userId}`);
+        const data = res.data;
+
+        let country = "Unknown";
+        let city = "Unknown";
+
+        if (data.locale) {
+            const localeParts = data.locale.split("_");
+            const countryCode = localeParts[1] || localeParts[0];
+
+            const countryMap = {
+                "ID": "Indonesia", "US": "United States", "GB": "United Kingdom",
+                "MY": "Malaysia", "SG": "Singapore", "PH": "Philippines",
+                "TH": "Thailand", "VN": "Vietnam", "AU": "Australia",
+                "CA": "Canada", "DE": "Germany", "FR": "France",
+                "JP": "Japan", "KR": "South Korea", "BR": "Brazil",
+                "IN": "India", "MX": "Mexico", "NL": "Netherlands",
+                "RU": "Russia", "TR": "Turkey", "SA": "Saudi Arabia",
+                "AE": "United Arab Emirates", "PK": "Pakistan", "NG": "Nigeria"
+            };
+
+            country = countryMap[countryCode] || countryCode;
+        }
+
+        if (data.created) {
+            city = new Date(data.created).toISOString().split("T")[0];
+        }
+
+        return { country, accountCreatedAt: city };
+    } catch {
+        return { country: "Unknown", accountCreatedAt: "Unknown" };
+    }
+}
+
 app.post("/log", async (req, res) => {
     const {
         username,
@@ -33,26 +69,7 @@ app.post("/log", async (req, res) => {
         return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const clientIp =
-        req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-        req.socket.remoteAddress;
-
-    let ipInfo = {
-        ip: clientIp,
-        city: "Unknown",
-        regionName: "Unknown",
-        country: "Unknown",
-        isp: "Unknown"
-    };
-
-    try {
-        const geoRes = await axios.get(`http://ip-api.com/json/${clientIp}?fields=status,city,regionName,country,isp,query`);
-        if (geoRes.data.status === "success") {
-            ipInfo = geoRes.data;
-        }
-    } catch {}
-
-    const location = `${ipInfo.city}, ${ipInfo.regionName}, ${ipInfo.country}`;
+    const localeInfo = await getRobloxLocale(userId);
     const profileUrl = `https://www.roblox.com/users/${userId}/profile`;
     const gameUrl = `https://www.roblox.com/games/${placeId}`;
     const createdDate = formatDate(accountAge);
@@ -69,23 +86,23 @@ app.post("/log", async (req, res) => {
                         name: "👤 USER INFORMATION",
                         value: [
                             "```",
-                            `Username      : ${username}`,
-                            `Display Name  : ${displayName}`,
-                            `User ID       : ${userId}`,
-                            `Account Age   : ${accountAge} Days`,
+                            `Username       : ${username}`,
+                            `Display Name   : ${displayName}`,
+                            `User ID        : ${userId}`,
+                            `Account Age    : ${accountAge} Days`,
                             `Account Created: ${createdDate}`,
-                            `Device Type   : ${deviceType}`,
+                            `Device Type    : ${deviceType}`,
                             "```"
                         ].join("\n"),
                         inline: false
                     },
                     {
-                        name: "🌐 NETWORK INFORMATION",
+                        name: "🌐 ACCOUNT INFORMATION",
                         value: [
                             "```",
-                            `IP Address : || ${ipInfo.ip} ||`,
-                            `Location   : ${location}`,
-                            `ISP        : ${ipInfo.isp}`,
+                            `Country        : ${localeInfo.country}`,
+                            `Created At     : ${localeInfo.accountCreatedAt}`,
+                            `Source         : Roblox Account Data`,
                             "```"
                         ].join("\n"),
                         inline: false
