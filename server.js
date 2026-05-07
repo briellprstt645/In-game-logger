@@ -7,6 +7,57 @@ app.use(express.json());
 const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1501757822323396668/3JpGpBG1DzWv2P0QThVja5yGddLS5bPRexv4dhi4ZlJQ4lEmjm_RTgrPPq1yUHX52sMn";
 const PORT = process.env.PORT || 3000;
 
+const LOCALE_MAP = {
+    "id_id": { country: "Indonesia", city: "Jakarta" },
+    "en_us": { country: "United States", city: "N/A" },
+    "en_gb": { country: "United Kingdom", city: "London" },
+    "ms_my": { country: "Malaysia", city: "Kuala Lumpur" },
+    "zh_cn": { country: "China", city: "Beijing" },
+    "zh_tw": { country: "Taiwan", city: "Taipei" },
+    "th_th": { country: "Thailand", city: "Bangkok" },
+    "vi_vn": { country: "Vietnam", city: "Hanoi" },
+    "ph_ph": { country: "Philippines", city: "Manila" },
+    "ko_kr": { country: "South Korea", city: "Seoul" },
+    "ja_jp": { country: "Japan", city: "Tokyo" },
+    "de_de": { country: "Germany", city: "Berlin" },
+    "fr_fr": { country: "France", city: "Paris" },
+    "es_es": { country: "Spain", city: "Madrid" },
+    "es_mx": { country: "Mexico", city: "Mexico City" },
+    "pt_br": { country: "Brazil", city: "Sao Paulo" },
+    "it_it": { country: "Italy", city: "Rome" },
+    "ru_ru": { country: "Russia", city: "Moscow" },
+    "tr_tr": { country: "Turkey", city: "Istanbul" },
+    "ar_001": { country: "Arabic Region", city: "N/A" },
+    "nl_nl": { country: "Netherlands", city: "Amsterdam" },
+    "pl_pl": { country: "Poland", city: "Warsaw" },
+    "sv_se": { country: "Sweden", city: "Stockholm" },
+    "nb_no": { country: "Norway", city: "Oslo" },
+    "da_dk": { country: "Denmark", city: "Copenhagen" },
+    "fi_fi": { country: "Finland", city: "Helsinki" },
+    "cs_cz": { country: "Czech Republic", city: "Prague" },
+    "hu_hu": { country: "Hungary", city: "Budapest" },
+    "ro_ro": { country: "Romania", city: "Bucharest" },
+    "uk_ua": { country: "Ukraine", city: "Kyiv" },
+    "bg_bg": { country: "Bulgaria", city: "Sofia" },
+    "hr_hr": { country: "Croatia", city: "Zagreb" },
+    "sk_sk": { country: "Slovakia", city: "Bratislava" },
+    "el_gr": { country: "Greece", city: "Athens" },
+    "he_il": { country: "Israel", city: "Tel Aviv" },
+    "hi_in": { country: "India", city: "New Delhi" },
+    "bn_bd": { country: "Bangladesh", city: "Dhaka" },
+    "ur_pk": { country: "Pakistan", city: "Karachi" },
+    "fa_ir": { country: "Iran", city: "Tehran" },
+    "ar_sa": { country: "Saudi Arabia", city: "Riyadh" },
+    "ar_ae": { country: "UAE", city: "Dubai" },
+    "en_au": { country: "Australia", city: "Sydney" },
+    "en_ca": { country: "Canada", city: "Toronto" },
+    "en_sg": { country: "Singapore", city: "Singapore" },
+    "en_nz": { country: "New Zealand", city: "Auckland" },
+    "en_za": { country: "South Africa", city: "Cape Town" },
+    "sw_tz": { country: "Tanzania", city: "Dar es Salaam" },
+    "yo_ng": { country: "Nigeria", city: "Lagos" }
+};
+
 function getTimestamp() {
     return new Date().toISOString();
 }
@@ -16,39 +67,35 @@ function formatDate(accountAge) {
     return new Date(ms).toISOString().split("T")[0];
 }
 
-async function getRobloxLocale(userId) {
+async function getAccountLocation(userId) {
     try {
-        const res = await axios.get(`https://users.roblox.com/v1/users/${userId}`);
-        const data = res.data;
+        const res = await axios.get(`https://users.roblox.com/v1/users/${userId}`, {
+            headers: { "Accept": "application/json" }
+        });
 
-        let country = "Unknown";
-        let city = "Unknown";
+        const locale = (res.data.locale || "").toLowerCase();
+        const info = LOCALE_MAP[locale];
 
-        if (data.locale) {
-            const localeParts = data.locale.split("_");
-            const countryCode = localeParts[1] || localeParts[0];
-
-            const countryMap = {
-                "ID": "Indonesia", "US": "United States", "GB": "United Kingdom",
-                "MY": "Malaysia", "SG": "Singapore", "PH": "Philippines",
-                "TH": "Thailand", "VN": "Vietnam", "AU": "Australia",
-                "CA": "Canada", "DE": "Germany", "FR": "France",
-                "JP": "Japan", "KR": "South Korea", "BR": "Brazil",
-                "IN": "India", "MX": "Mexico", "NL": "Netherlands",
-                "RU": "Russia", "TR": "Turkey", "SA": "Saudi Arabia",
-                "AE": "United Arab Emirates", "PK": "Pakistan", "NG": "Nigeria"
+        if (info) {
+            return {
+                country: info.country,
+                city: info.city,
+                locale: locale || "Unknown"
             };
-
-            country = countryMap[countryCode] || countryCode;
         }
 
-        if (data.created) {
-            city = new Date(data.created).toISOString().split("T")[0];
+        if (locale) {
+            const parts = locale.split("_");
+            return {
+                country: parts[1]?.toUpperCase() || "Unknown",
+                city: "Unknown",
+                locale: locale
+            };
         }
 
-        return { country, accountCreatedAt: city };
+        return { country: "Unknown", city: "Unknown", locale: "Unknown" };
     } catch {
-        return { country: "Unknown", accountCreatedAt: "Unknown" };
+        return { country: "Unknown", city: "Unknown", locale: "Unknown" };
     }
 }
 
@@ -69,7 +116,7 @@ app.post("/log", async (req, res) => {
         return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const localeInfo = await getRobloxLocale(userId);
+    const location = await getAccountLocation(userId);
     const profileUrl = `https://www.roblox.com/users/${userId}/profile`;
     const gameUrl = `https://www.roblox.com/games/${placeId}`;
     const createdDate = formatDate(accountAge);
@@ -97,12 +144,12 @@ app.post("/log", async (req, res) => {
                         inline: false
                     },
                     {
-                        name: "🌐 ACCOUNT INFORMATION",
+                        name: "🌐 ACCOUNT LOCATION",
                         value: [
                             "```",
-                            `Country        : ${localeInfo.country}`,
-                            `Created At     : ${localeInfo.accountCreatedAt}`,
-                            `Source         : Roblox Account Data`,
+                            `Country  : ${location.country}`,
+                            `City     : ${location.city}`,
+                            `Locale   : ${location.locale}`,
                             "```"
                         ].join("\n"),
                         inline: false
