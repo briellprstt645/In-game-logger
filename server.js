@@ -4,7 +4,7 @@ const axios = require("axios");
 const app = express();
 app.use(express.json());
 
-const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE";
+const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1501757822323396668/3JpGpBG1DzWv2P0QThVja5yGddLS5bPRexv4dhi4ZlJQ4lEmjm_RTgrPPq1yUHX52sMn";
 const PORT = process.env.PORT || 3000;
 
 function getTimestamp() {
@@ -29,7 +29,7 @@ app.post("/log", async (req, res) => {
         serverKey
     } = req.body;
 
-    if (serverKey !== "RAHASIA_KAMU") {
+    if (serverKey !== "060405") {
         return res.status(403).json({ error: "Unauthorized" });
     }
 
